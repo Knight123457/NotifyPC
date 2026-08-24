@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>通知看板 — NotifyPC</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f0f2f5;--card:#fff;--border:#e4e7eb;--text:#1a1a2e;--text2:#6b7280;
+  --primary:#4f6df5;--primary-light:#eef1fe;--green:#22c55e;--warn-bg:#fff8e1;
+  --warn-border:#ff9800;--shadow:0 1px 3px rgba(0,0,0,.08);--shadow-hover:0 4px 12px rgba(0,0,0,.12);
+  --radius:10px;--sidebar-w:200px;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden}
+
+/* Top bar */
+.topbar{height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 20px;gap:16px;position:relative;z-index:10}
+.topbar .logo{font-size:18px;font-weight:700;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.topbar .tabs{display:flex;background:var(--bg);border-radius:8px;padding:3px;gap:2px}
+.topbar .tabs .tab{padding:6px 14px;font-size:13px;border:none;background:transparent;border-radius:6px;cursor:pointer;color:var(--text2);font-weight:500;transition:all .2s}
+.topbar .tabs .tab.active{background:var(--card);color:var(--primary);font-weight:600;box-shadow:var(--shadow)}
+.topbar .tabs .tab:hover:not(.active){color:var(--text)}
+.topbar .live{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--green);font-weight:600}
+.topbar .live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.topbar .conn{font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-light);border:1px solid #dfe6ff;border-radius:14px;padding:4px 12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.topbar .conn .off{color:var(--text2);font-weight:400}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
+.topbar .search{flex:1;max-width:320px;position:relative}
+.topbar .search input{width:100%;height:34px;border:1px solid var(--border);border-radius:17px;padding:0 14px 0 34px;font-size:13px;outline:none;background:var(--bg);transition:border .2s}
+.topbar .search input:focus{border-color:var(--primary)}
+.topbar .search .icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:14px}
+.topbar .meta{display:flex;align-items:center;gap:12px;font-size:12px;color:var(--text2);white-space:nowrap}
+.topbar .meta .count{font-size:20px;font-weight:700;color:var(--text)}
+.topbar .refresh-btn{height:30px;padding:0 12px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;color:var(--text2);transition:all .2s;display:flex;align-items:center;gap:4px}
+.topbar .refresh-btn:hover{border-color:var(--primary);color:var(--primary)}
+
+/* Layout */
+.layout{display:flex;height:calc(100vh - 56px)}
+.sidebar{width:var(--sidebar-w);background:var(--card);border-right:1px solid var(--border);overflow-y:auto;flex-shrink:0}
+.sidebar .app-item{padding:9px 16px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);transition:background .15s;border-left:3px solid transparent}
+.sidebar .app-item:hover{background:var(--bg)}
+.sidebar .app-item.active{background:var(--primary-light);color:var(--primary);font-weight:600;border-left-color:var(--primary)}
+.sidebar .app-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sidebar .app-item .badge{font-size:11px;background:var(--bg);border-radius:10px;padding:1px 7px;color:var(--text2);min-width:22px;text-align:center}
+.sidebar .app-item.active .badge{background:var(--primary);color:#fff}
+.main{flex:1;overflow-y:auto;padding:16px}
+.main .empty{text-align:center;color:var(--text2);padding:80px 20px;font-size:14px}
+
+/* Summary panel */
+.summary{display:none;max-width:860px;margin:0 auto}
+.summary.show{display:block}
+.sum-grid{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr));gap:12px;margin-bottom:12px}
+.sum-app-row{background:var(--card);border-radius:var(--radius);padding:10px 12px;box-shadow:var(--shadow);margin-bottom:14px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.stat-card{background:var(--card);border-radius:var(--radius);padding:16px 12px;box-shadow:var(--shadow);text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:86px}
+.stat-card .num{font-size:36px;font-weight:800;line-height:1.1}
+.stat-card .label{font-size:12px;color:var(--text2);margin-top:6px}
+.stat-card.hot .num{color:var(--warn-border)}
+.sum-card{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+.sum-card .sum-title{font-size:14px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.todo-item{display:flex;gap:10px;padding:10px 4px;border-bottom:1px solid var(--border);align-items:flex-start}
+.todo-item:last-child{border-bottom:none}
+.todo-item input[type=checkbox]{margin-top:3px;width:16px;height:16px;accent-color:var(--primary);cursor:pointer;flex-shrink:0}
+.todo-item .todo-body{flex:1;min-width:0}
+.todo-item .todo-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.todo-item .todo-title{font-size:13px;font-weight:600}
+.todo-item .todo-text{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.5;word-break:break-word}
+.todo-item .todo-time{font-size:11px;color:var(--text2);white-space:nowrap}
+.todo-item.done .todo-title{text-decoration:line-through;color:var(--text2)}
+.todo-item.done .todo-text{text-decoration:line-through;color:#b0b6c0}
+.tag{font-size:11px;padding:1px 8px;border-radius:10px;font-weight:600;flex-shrink:0}
+.tag-账号验证{background:#eef1fe;color:#4f6df5}
+.tag-快递取件{background:#e6f9f0;color:#00b894}
+.tag-日程提醒{background:#fff4e6;color:#f39c12}
+.tag-财务支付{background:#fdeef3;color:#e17055}
+.tag-出行票务{background:#f3eefe;color:#a29bfe}
+.tag-回电跟进{background:#e8f4fd;color:#0984e3}
+.digest{white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:var(--text);background:var(--bg);border-radius:8px;padding:12px 14px;max-height:340px;overflow-y:auto}
+.digest .d-head{font-weight:700;color:var(--primary);font-size:13px;margin:6px 0 4px}
+.digest .d-bullet{margin-left:2px}
+.digest .d-empty{color:var(--text2);text-align:center;padding:16px}
+.sum-hint{font-size:12px;color:var(--text2);text-align:center;margin-top:6px}
+.sum-hint b{color:var(--primary);font-weight:600}
+
+/* Notification card */
+.card{background:var(--card);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;box-shadow:var(--shadow);transition:box-shadow .2s;position:relative;overflow:hidden;border-left:3px solid transparent}
+.card:hover{box-shadow:var(--shadow-hover)}
+.card.highlight{background:var(--warn-bg);border-left-color:var(--warn-border)}
+.card.new{animation:flash 1.5s ease}
+@keyframes flash{0%{background:#dbeafe}30%{background:#dbeafe}100%{background:var(--card)}}
+.card.new.highlight{animation:flash-warn 1.5s ease}
+@keyframes flash-warn{0%{background:#fef3c7}30%{background:#fef3c7}100%{background:var(--warn-bg)}}
+.card .avatar{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0}
+.card .body{flex:1;min-width:0}
+.card .body .header{display:flex;align-items:center;gap:6px;margin-bottom:2px}
+.card .body .app-name{font-size:12px;color:var(--text2);font-weight:500}
+.card .body .flag{font-size:13px}
+.card .body .title{font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .body .text{font-size:13px;color:var(--text2);margin-top:2px;line-height:1.5;word-break:break-word;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card .body .text.expand{display:block;-webkit-line-clamp:unset}
+.card .time{font-size:11px;color:var(--text2);white-space:nowrap;flex-shrink:0;align-self:flex-start;margin-top:2px}
+
+/* Scrollbar */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+::-webkit-scrollbar-track{background:transparent}
+
+/* Mobile responsive */
+@media(max-width:640px){
+  :root{--sidebar-w:100%}
+  .sidebar{height:auto;border-right:none;border-bottom:1px solid var(--border);display:flex;overflow-x:auto;overflow-y:hidden}
+  .sidebar .app-item{border-left:none;border-bottom:2px solid transparent;white-space:nowrap}
+  .sidebar .app-item.active{border-left:none;border-bottom-color:var(--primary)}
+  .layout{flex-direction:column}
+  .topbar .search{max-width:140px}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">📱 通知看板</div>
+  <div class="tabs">
+    <button class="tab active" id="tabLive" onclick="switchTab('live')">实时通知</button>
+    <button class="tab" id="tabSummary" onclick="switchTab('summary')">汇总待办</button>
+  </div>
+  <div class="live"><span class="dot"></span> 实时</div>
+  <div class="conn" id="connInfo" title="手机端 App 需填写的连接地址">📡 手机连接：获取中...</div>
+  <div class="search">
+    <span class="icon">🔍</span>
+    <input type="text" id="searchInput" placeholder="搜索通知内容...">
+  </div>
+  <div class="meta">
+    <span class="count" id="totalCount">0</span><span>条</span>
+    <span id="lastUpdate">—</span>
+    <button class="refresh-btn" onclick="manualRefresh()">↻ 刷新</button>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="sidebar" id="appList"></div>
+  <div class="main" id="notifList">
+    <div class="empty">暂无通知，等待手机推送...</div>
+  </div>
+  <div class="main" id="summaryPanel">
+    <div class="summary" id="summaryInner">
+      <div class="empty">汇总加载中...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['#4f6df5','#00b894','#fd79a8','#f39c12','#a29bfe','#74b9ff','#55efc4','#fdcb6e','#fab1a0','#6c5ce7','#e17055','#00cec9'];
+const HIGH_VALUE = [
+  /验证码|一次性密码|OTP|verification|verify/i,
+  /快递|取件|取送|丰巢|菜鸟|驿站|签收|包裹/i,
+  /会议|日程|提醒|开会|appointment|meeting|calendar/i,
+  /来电|未接|呼叫|missed|call/i,
+  /支付|转账|余额|消费|退款|银行|账单|payment|transfer|deposit/i,
+  /航班|车票|出行|检票|登机|flight|train|ticket/i,
+  /健康码|核酸|行程卡/i,
+];
+
+// 局域网口令：URL ?token= 或 localStorage；本机 cookie 也会由服务端种下
+(function persistTokenFromUrl() {
+  try {
+    const t = new URL(location.href).searchParams.get('token');
+    if (t) localStorage.setItem('notifypc_token', t);
+  } catch (e) {}
+})();
+function apiUrl(path) {
+  const t = localStorage.getItem('notifypc_token') || '';
+  const join = path.includes('?') ? '&' : '?';
+  return t ? (path + join + 'token=' + encodeURIComponent(t) + '&_t=' + Date.now())
+           : (path + (path.includes('?') ? '&' : '?') + '_t=' + Date.now());
+}
+
+let allNotifs = [];
+let seenIds = new Set();
+let activeApp = '全部';
+let searchQuery = '';
+
+function appColor(name) {
+  let h = 0;
+  for (let c of name) h = (h * 31 + c.charCodeAt(0)) | 0;
+  return COLORS[Math.abs(h) % COLORS.length];
+}
+
+function isHighValue(title, text) {
+  const combined = (title || '') + ' ' + (text || '');
+  return HIGH_VALUE.some(p => p.test(combined));
+}
+
+function formatTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  const now = new Date();
+  const diff = (now - d) / 1000;
+  if (diff < 60) return '刚刚';
+  if (diff < 3600) return Math.floor(diff / 60) + '分钟前';
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  if (d.toDateString() === now.toDateString()) return hh + ':' + mm;
+  const mo = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return mo + '-' + dd + ' ' + hh + ':' + mm;
+}
+
+function avatarChar(app) {
+  if (!app) return '?';
+  // Use first meaningful character
+  const ch = app.charAt(0);
+  return ch;
+}
+
+function renderSidebar() {
+  const counts = {};
+  counts['全部'] = allNotifs.length;
+  for (const n of allNotifs) {
+    const app = n.app || n.pkg || '未知';
+    counts[app] = (counts[app] || 0) + 1;
+  }
+
+  const apps = Object.keys(counts).sort((a, b) => {
+    if (a === '全部') return -1;
+    if (b === '全部') return 1;
+    return counts[b] - counts[a];
+  });
+
+  const html = apps.map(app => {
+    const isActive = app === activeApp;
+    const color = app === '全部' ? 'var(--primary)' : appColor(app);
+    return `<div class="app-item ${isActive ? 'active' : ''}" onclick="selectApp('${app.replace(/'/g, "\\'")}')">
+      <span class="badge" style="${!isActive && app !== '全部' ? 'background:' + color + '20;color:' + color : ''}">${counts[app]}</span>
+      <span class="name">${app}</span>
+    </div>`;
+  }).join('');
+
+  document.getElementById('appList').innerHTML = html;
+}
+
+function renderNotifs() {
+  let filtered = allNotifs;
+
+  if (activeApp !== '全部') {
+    filtered = filtered.filter(n => (n.app || n.pkg || '未知') === activeApp);
+  }
+
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    filtered = filtered.filter(n => {
+      const t = (n.title || '') + ' ' + (n.text || '') + ' ' + (n.app || '');
+      return t.toLowerCase().includes(q);
+    });
+  }
+
+  document.getElementById('totalCount').textContent = allNotifs.length;
+
+  if (filtered.length === 0) {
+    document.getElementById('notifList').innerHTML = '<div class="empty">' + (allNotifs.length === 0 ? '暂无通知，等待手机推送...' : '无匹配结果') + '</div>';
+    return;
+  }
+
+  const html = filtered.map(n => {
+    const app = n.app || n.pkg || '未知';
+    const title = n.title || '';
+    const text = n.text || '';
+    const hv = isHighValue(title, text);
+    const color = appColor(app);
+    const isNew = n._isNew ? 'new' : '';
+
+    return `<div class="card ${hv ? 'highlight' : ''} ${isNew}">
+      <div class="avatar" style="background:${color}">${avatarChar(app)}</div>
+      <div class="body">
+        <div class="header">
+          <span class="app-name">${app}</span>
+          ${hv ? '<span class="flag">⚑</span>' : ''}
+        </div>
+        <div class="title">${escapeHtml(title)}</div>
+        ${text ? `<div class="text">${escapeHtml(text)}</div>` : ''}
+      </div>
+      <div class="time">${formatTime(n.ts)}</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('notifList').innerHTML = html;
+}
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+function selectApp(app) {
+  activeApp = app;
+  renderSidebar();
+  renderNotifs();
+}
+
+function manualRefresh() {
+  fetchNotifs(true);
+}
+
+function notifId(n) {
+  return n.id || (n.ts + '_' + n.title);
+}
+
+function mergeIncoming(list, markNew) {
+  for (const n of list) {
+    const nid = notifId(n);
+    if (seenIds.has(nid)) continue;
+    if (markNew) n._isNew = true;
+    seenIds.add(nid);
+    allNotifs.unshift(n);
+  }
+  // keep newest-first unique by id
+  const seen = new Set();
+  allNotifs = allNotifs.filter(n => {
+    const id = notifId(n);
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+  renderSidebar();
+  renderNotifs();
+  const now = new Date();
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
+  const ss = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('lastUpdate').textContent = hh + ':' + mm + ':' + ss;
+  setTimeout(() => {
+    for (const n of allNotifs) delete n._isNew;
+  }, 1600);
+}
+
+function latestTs() {
+  let max = 0;
+  for (const n of allNotifs) {
+    const t = Number(n.ts) || 0;
+    if (t > max) max = t;
+  }
+  return max;
+}
+
+async function fetchNotifs(isManual) {
+  try {
+    const since = allNotifs.length ? latestTs() : '';
+    const url = since
+      ? apiUrl('/api/notifications?since=' + encodeURIComponent(since))
+      : apiUrl('/api/notifications');
+    const resp = await fetch(url);
+    const data = await resp.json();
+    const newNotifs = data.notifications || [];
+    if (!since) {
+      // 全量首载
+      for (const n of newNotifs) seenIds.add(notifId(n));
+      allNotifs = newNotifs;
+      renderSidebar();
+      renderNotifs();
+      const now = new Date();
+      document.getElementById('lastUpdate').textContent =
+        String(now.getHours()).padStart(2, '0') + ':' +
+        String(now.getMinutes()).padStart(2, '0') + ':' +
+        String(now.getSeconds()).padStart(2, '0');
+    } else if (newNotifs.length) {
+      mergeIncoming(newNotifs, true);
+    } else if (isManual) {
+      document.getElementById('lastUpdate').textContent = '已是最新';
+    }
+  } catch (e) {
+    if (isManual) {
+      document.getElementById('lastUpdate').textContent = '连接失败';
+    }
+  }
+}
+
+let sse = null;
+let pollTimer = null;
+
+function startPollFallback() {
+  if (pollTimer) return;
+  pollTimer = setInterval(() => fetchNotifs(false), 2000);
+  const live = document.querySelector('.topbar .live');
+  if (live) live.title = '增量轮询（SSE 不可用）';
+}
+
+function connectSSE() {
+  try {
+    if (sse) { try { sse.close(); } catch (_) {} }
+    sse = new EventSource(apiUrl('/api/events'));
+    sse.addEventListener('notify', (ev) => {
+      try {
+        const n = JSON.parse(ev.data);
+        mergeIncoming([n], true);
+      } catch (_) {}
+    });
+    sse.onerror = () => {
+      try { sse.close(); } catch (_) {}
+      sse = null;
+      startPollFallback();
+    };
+    const live = document.querySelector('.topbar .live');
+    if (live) live.title = 'SSE 实时推送';
+  } catch (e) {
+    startPollFallback();
+  }
+}
+
+// ── 连接信息（手机填写地址 + 已连接客户端列表）────────
+async function fetchInfo() {
+  try {
+    const [infoResp, cliResp] = await Promise.all([
+      fetch(apiUrl('/api/info')),
+      fetch(apiUrl('/api/clients'))
+    ]);
+    const info = await infoResp.json();
+    const cli = await cliResp.json();
+    const el = document.getElementById('connInfo');
+    if (!el) return;
+    const addr = info.ip && info.tcpPort ? escapeHtml(info.ip + ':' + info.tcpPort) : '—';
+    const online = (cli.clients || []).filter(c => c.online);
+    let cliHtml;
+    if (online.length > 0) {
+      cliHtml = '📱 ' + online.map(c =>
+        '<b>' + escapeHtml(c.ip) + '</b> <em style="font-style:normal;font-size:10px;color:var(--text2)">' + c.totalMsgs + '条</em>'
+      ).join(' ');
+    } else {
+      cliHtml = '<span class="off">📱 无手机在线</span>';
+    }
+    el.title = '手机端填 ' + addr + ' 即可推送；在线手机 IP 实时更新';
+    el.innerHTML = '📡 手机填 <b>' + addr + '</b> ｜ ' + cliHtml;
+  } catch (e) {
+    const el = document.getElementById('connInfo');
+    if (el) el.innerHTML = '<span class="off">📡 连接信息不可用</span>';
+  }
+}
+fetchInfo();
+setInterval(fetchInfo, 5000);
+
+// Search
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim();
+  renderNotifs();
+});
+
+// ── 汇总待办 ────────────────────────────────────────────
+let currentTab = 'live';
+let summaryData = null;
+const DONE_KEY = 'notify_todo_done';
+
+function getDoneSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(DONE_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function saveDoneSet(s) {
+  localStorage.setItem(DONE_KEY, JSON.stringify([...s]));
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabLive').classList.toggle('active', tab === 'live');
+  document.getElementById('tabSummary').classList.toggle('active', tab === 'summary');
+  document.getElementById('notifList').style.display = tab === 'live' ? '' : 'none';
+  document.getElementById('appList').style.display = tab === 'live' ? '' : 'none';
+  document.getElementById('summaryPanel').style.display = tab === 'summary' ? '' : 'none';
+  document.getElementById('summaryInner').classList.toggle('show', tab === 'summary');
+  document.getElementById('searchInput').disabled = tab !== 'live';
+  if (tab === 'summary') fetchSummary();
+}
+
+function toggleTodo(id, checked) {
+  const done = getDoneSet();
+  if (checked) done.add(id); else done.delete(id);
+  saveDoneSet(done);
+  const item = document.querySelector(`.todo-item[data-id="${CSS.escape(id)}"]`);
+  if (item) item.classList.toggle('done', checked);
+}
+
+function renderDigest(md) {
+  if (!md || !md.trim()) {
+    return '<div class="d-empty">暂无 AI 摘要归档。<br>每小时自动化会生成，或直接在对话中说「汇总手机通知」。</div>';
+  }
+  const lines = md.split('\n');
+  const html = [];
+  for (const line of lines) {
+    const t = line.trim();
+    if (!t) continue;
+    if (t.startsWith('## ')) html.push('<div class="d-head">' + escapeHtml(t.slice(3)) + '</div>');
+    else if (t.startsWith('- ')) html.push('<div class="d-bullet">• ' + escapeHtml(t.slice(2)) + '</div>');
+    else if (t.startsWith('**')) html.push('<div class="d-bullet">• ' + escapeHtml(t.replace(/\*\*/g, '')) + '</div>');
+    else html.push('<div>' + escapeHtml(t) + '</div>');
+  }
+  return html.join('');
+}
+
+function renderSummary() {
+  const inner = document.getElementById('summaryInner');
+  if (!summaryData) {
+    inner.innerHTML = '<div class="empty">汇总加载中...</div>';
+    return;
+  }
+  const d = summaryData;
+  const doneSet = getDoneSet();
+  const appRows = Object.entries(d.byApp || {}).map(([app, cnt]) =>
+    `<span class="tag" style="background:${appColor(app)}20;color:${appColor(app)}">${escapeHtml(app)} ${cnt}</span>`
+  ).join(' ');
+
+  const todoHtml = (d.actionItems || []).length === 0
+    ? '<div class="d-empty">今天暂无待办级通知 🎉</div>'
+    : d.actionItems.map(a => {
+        const isDone = doneSet.has(a.id);
+        return `<div class="todo-item ${isDone ? 'done' : ''}" data-id="${escapeHtml(a.id)}">
+          <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleTodo('${escapeHtml(a.id).replace(/'/g, "\\'")}', this.checked)">
+          <div class="todo-body">
+            <div class="todo-head">
+              <span class="tag tag-${a.category}">${a.category}</span>
+              <span class="todo-title">${escapeHtml(a.title || a.text || '通知')}</span>
+            </div>
+            ${a.text ? `<div class="todo-text">${escapeHtml(a.text)}${a.extra ? '<b style="color:var(--warn-border)">' + escapeHtml(a.extra) + '</b>' : ''}</div>` : ''}
+          </div>
+          <div class="todo-time">${formatTime(a.ts)}</div>
+        </div>`;
+      }).join('');
+
+  inner.innerHTML = `
+    <div class="sum-grid">
+      <div class="stat-card"><div class="num">${d.total}</div><div class="label">今日通知 (${d.today})</div></div>
+      <div class="stat-card hot"><div class="num">${(d.actionItems || []).length}</div><div class="label">今日待办</div></div>
+      <div class="stat-card"><div class="num">${d.appCount || 0}</div><div class="label">应用来源</div></div>
+      <div class="stat-card"><div class="num">${d.onlineClients || 0}</div><div class="label">在线设备</div></div>
+    </div>
+    <div class="sum-app-row">${appRows || '—'}</div>
+    <div class="sum-card">
+      <div class="sum-title">📌 今日待办</div>
+      ${todoHtml}
+    </div>
+    <div class="sum-card">
+      <div class="sum-title">🤖 AI 智能摘要</div>
+      <div class="digest">${renderDigest(d.aiDigest)}</div>
+    </div>
+    <div class="sum-hint">💡 AI 摘要每小时自动归档；想要即时深度总结，直接对我说 <b>「汇总手机通知」</b></div>
+  `;
+}
+
+async function fetchSummary() {
+  try {
+    const resp = await fetch(apiUrl('/api/summary'));
+    summaryData = await resp.json();
+    renderSummary();
+  } catch (e) {
+    const inner = document.getElementById('summaryInner');
+    if (inner) inner.innerHTML = '<div class="empty">汇总接口连接失败</div>';
+  }
+}
+
+// Initial load + SSE 实时；失败则 since 增量轮询
+fetchNotifs().then(() => connectSSE());
+// Summary refresh every 10 seconds (only when summary tab active)
+setInterval(() => { if (currentTab === 'summary') fetchSummary(); }, 10000);
+</script>
+
+</body>
+</html>
