@@ -390,7 +390,7 @@ function mergeIncoming(list, markNew) {
     if (seen.has(id)) return false;
     seen.add(id);
     return true;
-  });
+  }));
   renderSidebar();
   renderNotifs();
   const now = new Date();
