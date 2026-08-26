@@ -28,7 +28,7 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1"
 2. **备份旧 config.json**：在 `%USERPROFILE%\NotifyPC.bak.<时间戳>\` 保留旧配置
 3. **删除旧部署目录**：清空 `%USERPROFILE%\NotifyPC\`，避免旧 exe / 旧配置与新 skill 冲突
 4. 在 `%USERPROFILE%\NotifyPC\` 目录部署 `notify-bridge.exe`
-5. 若本地无 exe，从 GitHub Release 自动下载
+5. 若本地无 exe，优先通过国内镜像自动下载，镜像失败后再尝试 GitHub 直连
 6. 创建默认 `config.json`
 7. 同步 `dashboard.html`
 

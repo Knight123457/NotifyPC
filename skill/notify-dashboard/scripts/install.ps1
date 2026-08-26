@@ -1,5 +1,5 @@
 ﻿# NotifyPC 一键部署脚本（幂等）
-# 优先级：本地 skill\bin → 已部署目录 → 从 GitHub 下载
+# 优先级：本地 skill\bin → 已部署目录 → 镜像下载 → GitHub 直连
 # 用法：powershell -ExecutionPolicy Bypass -File install.ps1 [-AutoStart]
 param(
     [switch]$AutoStart,
@@ -16,10 +16,11 @@ $htmlDest  = Join-Path $destDir "dashboard.html"
 $cfgSrc    = Join-Path $skillRoot "config.example.json"
 $cfgDest   = Join-Path $destDir "config.json"
 
-# GitHub 下载源（仓库 Release/ 目录；skill 本身不必上传 GitHub）
+# GitHub 下载源（优先镜像，避免国内直连超时；最后兜底直连）
 $ExeDownloadUrls = @(
-    "https://github.com/Knight123457/NotifyPC/raw/main/Release/notify-bridge.exe",
-    "https://github.com/Knight123457/NotifyPC/releases/latest/download/notify-bridge.exe"
+    "https://ghproxy.net/https://raw.githubusercontent.com/Knight123457/NotifyPC/main/Release/notify-bridge.exe",
+    "https://gh-proxy.com/https://raw.githubusercontent.com/Knight123457/NotifyPC/main/Release/notify-bridge.exe",
+    "https://github.com/Knight123457/NotifyPC/raw/main/Release/notify-bridge.exe"
 )
 
 function Download-File([string]$Url, [string]$OutPath, [string]$Label) {
@@ -100,8 +101,9 @@ if (-not $haveExe) {
     Write-Host ""
     Write-Host "[错误] 无法获取 notify-bridge.exe" -ForegroundColor Red
     Write-Host "请任选其一：" -ForegroundColor Yellow
-    Write-Host "  1) 浏览器打开 https://github.com/Knight123457/NotifyPC/releases 下载 exe"
-    Write-Host "     放到 $exeDest"
+    Write-Host "  1) 浏览器打开以下镜像链接下载 exe，放到 $exeDest"
+    Write-Host "     https://ghproxy.net/https://raw.githubusercontent.com/Knight123457/NotifyPC/main/Release/notify-bridge.exe"
+    Write-Host "     https://gh-proxy.com/https://raw.githubusercontent.com/Knight123457/NotifyPC/main/Release/notify-bridge.exe"
     Write-Host "  2) 或把 exe 提交到仓库 Release/notify-bridge.exe 后再运行本脚本"
     exit 1
 }

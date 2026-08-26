@@ -1,0 +1,8 @@
+{
+  "dashToken": "K1xDV-iQfvUxM89SjyKZHA",
+  "dashBind": "0.0.0.0",
+  "dashLocalBypass": true,
+  "dashPort": 9875,
+  "iosBleAddress": "",
+  "ancsEnabled": false
+}
