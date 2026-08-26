@@ -2,7 +2,8 @@
 # 优先级：本地 skill\bin → 已部署目录 → 从 GitHub 下载
 # 用法：powershell -ExecutionPolicy Bypass -File install.ps1 [-AutoStart]
 param(
-    [switch]$AutoStart
+    [switch]$AutoStart,
+    [switch]$KeepConfig
 )
 $ErrorActionPreference = "Stop"
 
@@ -48,19 +49,45 @@ Write-Host "== NotifyPC 部署 ==" -ForegroundColor Cyan
 Write-Host "skill 目录: $skillRoot"
 Write-Host "部署目标 : $destDir"
 
+# 0) 清理旧部署，防止旧 exe / 旧 config 与新 skill 冲突
+$oldProc = Get-Process -Name "notify-bridge" -ErrorAction SilentlyContinue
+if ($oldProc) {
+    Write-Host "[0/5] 正在停止旧 notify-bridge 进程 (PID $($oldProc.Id))..." -ForegroundColor Yellow
+    Stop-Process -Name "notify-bridge" -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 2
+    Write-Host "[0/5] 旧进程已停止" -ForegroundColor Green
+}
+
+if (Test-Path $destDir) {
+    $cfgOld = Join-Path $destDir "config.json"
+    if ((Test-Path $cfgOld) -and -not $KeepConfig) {
+        $backupDir = "$destDir.bak.$(Get-Date -Format 'yyyyMMddHHmmss')"
+        Write-Host "[0/5] 备份旧 config.json 到 $backupDir" -ForegroundColor DarkYellow
+        New-Item -ItemType Directory -Path $backupDir | Out-Null
+        Copy-Item $cfgOld $backupDir -Force
+    }
+    Write-Host "[0/5] 删除旧部署目录 $destDir" -ForegroundColor Yellow
+    Remove-Item -Path $destDir -Recurse -Force -ErrorAction SilentlyContinue
+    if (Test-Path $destDir) {
+        Write-Host "[警告] 无法完全删除 $destDir，尝试继续覆盖..." -ForegroundColor Red
+    } else {
+        Write-Host "[0/5] 旧目录已清理" -ForegroundColor Green
+    }
+}
+
 if (-not (Test-Path $destDir)) { New-Item -ItemType Directory -Path $destDir | Out-Null }
 
 # 1) 确保有 notify-bridge.exe
 $haveExe = $false
 if (Test-Path $exeDest) {
-    Write-Host "[1/4] 已存在 $exeDest，跳过下载" -ForegroundColor DarkGray
+    Write-Host "[1/5] 已存在 $exeDest，跳过下载" -ForegroundColor DarkGray
     $haveExe = $true
 } elseif (Test-Path $exeSrc) {
     Copy-Item $exeSrc $exeDest -Force
-    Write-Host "[1/4] 已从 skill\bin 复制 notify-bridge.exe" -ForegroundColor Green
+    Write-Host "[1/5] 已从 skill\bin 复制 notify-bridge.exe" -ForegroundColor Green
     $haveExe = $true
 } else {
-    Write-Host "[1/4] 本地无 exe，尝试从 GitHub 下载…" -ForegroundColor Yellow
+    Write-Host "[1/5] 本地无 exe，尝试从 GitHub 下载…" -ForegroundColor Yellow
     foreach ($url in $ExeDownloadUrls) {
         if (Download-File $url $exeDest "notify-bridge.exe") {
             $haveExe = $true
@@ -82,11 +109,11 @@ if (-not $haveExe) {
 # 2) dashboard.html（来自 skill 本地，不依赖 GitHub）
 if (Test-Path $htmlSrc) {
     Copy-Item $htmlSrc $htmlDest -Force
-    Write-Host "[2/4] 已同步 dashboard.html（来自 skill）" -ForegroundColor Green
+    Write-Host "[2/5] 已同步 dashboard.html（来自 skill）" -ForegroundColor Green
 } elseif (Test-Path $htmlDest) {
-    Write-Host "[2/4] dashboard.html 已存在，跳过" -ForegroundColor DarkGray
+    Write-Host "[2/5] dashboard.html 已存在，跳过" -ForegroundColor DarkGray
 } else {
-    Write-Host "[2/4] 无外部看板页，使用 exe 内嵌版" -ForegroundColor DarkGray
+    Write-Host "[2/5] 无外部看板页，使用 exe 内嵌版" -ForegroundColor DarkGray
 }
 
 # 3) config.json
@@ -94,23 +121,24 @@ if (-not (Test-Path $cfgDest)) {
     if (Test-Path $cfgSrc) {
         Copy-Item $cfgSrc $cfgDest -Force
     } else {
-        '{"dashPort":9875,"dashBind":"0.0.0.0","dashLocalBypass":true}' |
+        '{"dashPort":9875,"dashBind":"0.0.0.0","dashLocalBypass":true,"androidBleAddress":"","androidNames":[]}' |
             Out-File $cfgDest -Encoding utf8
     }
-    Write-Host "[3/4] 已创建 config.json（dashToken 首次启动自动生成）" -ForegroundColor Green
+    Write-Host "[3/5] 已创建 config.json（dashToken 首次启动自动生成）" -ForegroundColor Green
 } else {
-    Write-Host "[3/4] config.json 已存在，保留原配置" -ForegroundColor DarkGray
+    Write-Host "[3/5] config.json 已存在，保留原配置" -ForegroundColor DarkGray
 }
 
 # 4) 完成（v4 仅 BLE，无需 TCP 防火墙）
-Write-Host "[4/4] v4 使用 BLE，无需放行 TCP 9876" -ForegroundColor DarkGray
+Write-Host "[4/5] v4 使用 BLE，无需放行 TCP 9876" -ForegroundColor DarkGray
 
+# 5) 注册开机自启
 if ($AutoStart) {
     $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
     Set-ItemProperty -Path $runKey -Name "NotifyPC" -Value "`"$exeDest`""
-    Write-Host "[+] 已注册开机自启（HKCU Run）" -ForegroundColor Green
+    Write-Host "[5/5] 已注册开机自启（HKCU Run）" -ForegroundColor Green
 } else {
-    Write-Host "[i] 未注册开机自启（如需：install.ps1 -AutoStart）" -ForegroundColor DarkGray
+    Write-Host "[5/5] 未注册开机自启（如需：install.ps1 -AutoStart）" -ForegroundColor DarkGray
 }
 
 Write-Host "== 部署完成，程序位于 $exeDest ==" -ForegroundColor Cyan

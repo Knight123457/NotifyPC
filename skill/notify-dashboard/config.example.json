@@ -2,5 +2,9 @@
   "dashPort": 9875,
   "dashBind": "0.0.0.0",
   "dashToken": "请改成你自己的长随机串",
-  "dashLocalBypass": true
+  "dashLocalBypass": true,
+  "iosBleAddress": "",
+  "androidBleAddress": "",
+  "androidNames": [],
+  "ancsEnabled": false
 }

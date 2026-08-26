@@ -14,7 +14,7 @@ agent_created: true
 - **已移除 iPhone/ANCS、WiFi、经典蓝牙 RFCOMM**（v4.0.18 起）。
 - 看板每 3 秒自动轮询，新通知到达后约 3 秒内显示。
 
-## 安装（首次使用）
+## 安装（首次使用 / 重装）
 
 Skill 应用后，运行同目录 `scripts\install.ps1`：
 
@@ -22,11 +22,21 @@ Skill 应用后，运行同目录 `scripts\install.ps1`：
 powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1"
 ```
 
-脚本会：
-1. 在 `%USERPROFILE%\NotifyPC\` 目录部署 `notify-bridge.exe`
-2. 若本地无 exe，从 GitHub Release 自动下载
-3. 创建默认 `config.json`
-4. 同步 `dashboard.html`
+脚本会自动完成旧版本清理 + 新部署：
+
+1. **停止旧进程**：查找并结束正在运行的 `notify-bridge.exe`
+2. **备份旧 config.json**：在 `%USERPROFILE%\NotifyPC.bak.<时间戳>\` 保留旧配置
+3. **删除旧部署目录**：清空 `%USERPROFILE%\NotifyPC\`，避免旧 exe / 旧配置与新 skill 冲突
+4. 在 `%USERPROFILE%\NotifyPC\` 目录部署 `notify-bridge.exe`
+5. 若本地无 exe，从 GitHub Release 自动下载
+6. 创建默认 `config.json`
+7. 同步 `dashboard.html`
+
+如需保留旧配置（不删除目录，只覆盖文件），加 `-KeepConfig`：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConfig
+```
 
 ## 工作流
 
@@ -49,11 +59,26 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1"
 {
   "dashPort": 9875,
   "dashBind": "0.0.0.0",
-  "dashLocalBypass": true
+  "dashToken": "",
+  "dashLocalBypass": true,
+  "iosBleAddress": "",
+  "androidBleAddress": "",
+  "androidNames": [],
+  "ancsEnabled": false
 }
 ```
 
-首次启动会自动生成 `dashToken`。
+字段说明：
+
+| 字段 | 说明 |
+|------|------|
+| `dashPort` | 看板 HTTP 端口 |
+| `dashBind` | 绑定地址 |
+| `dashToken` | 首次启动自动生成，本地看板可保留空值 |
+| `dashLocalBypass` | 本地请求免鉴权 |
+| `androidBleAddress` | 可选，直接指定手机 BLE 地址连接 |
+| `androidNames` | 可选，Windows 扫描不到 UUID 时按蓝牙名匹配，如 `["陈同学的Xiaomi 14"]` |
+| `ancsEnabled` | iPhone/ANCS 已废弃，保持 `false` |
 
 ## API（调试）
 
