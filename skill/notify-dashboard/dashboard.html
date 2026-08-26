@@ -412,17 +412,18 @@ function latestTs() {
   return max;
 }
 
-async function fetchNotifs(isManual) {
+async function fetchNotifs(isManual, fullRefresh) {
   try {
-    const since = allNotifs.length ? latestTs() : '';
+    const since = (!fullRefresh && allNotifs.length) ? latestTs() : '';
     const url = since
       ? apiUrl('/api/notifications?since=' + encodeURIComponent(since))
       : apiUrl('/api/notifications');
     const resp = await fetch(url);
     const data = await resp.json();
     const newNotifs = data.notifications || [];
-    if (!since) {
-      // 全量首载
+    if (!since || fullRefresh) {
+      // 全量首载 / 兜底全量刷新
+      seenIds = new Set();
       for (const n of newNotifs) seenIds.add(notifId(n));
       allNotifs = sortNewestFirst(newNotifs);
       renderSidebar();
@@ -446,6 +447,9 @@ async function fetchNotifs(isManual) {
 
 let sse = null;
 let pollTimer = null;
+let fullRefreshTimer = null;
+let sseRetryCount = 0;
+const SSE_RETRY_MAX = 5;
 
 function startPollFallback() {
   if (pollTimer) return;
@@ -454,10 +458,29 @@ function startPollFallback() {
   if (live) live.title = '增量轮询（SSE 不可用）';
 }
 
+function stopPollFallback() {
+  if (pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+  }
+}
+
+function startFullRefreshFallback() {
+  if (fullRefreshTimer) return;
+  fullRefreshTimer = setInterval(() => {
+    // 30 秒兜底全量刷新，防止 SSE 漏掉历史/缓存消息
+    fetchNotifs(false, true);
+  }, 30000);
+}
+
 function connectSSE() {
   try {
     if (sse) { try { sse.close(); } catch (_) {} }
     sse = new EventSource(apiUrl('/api/events'));
+    sse.addEventListener('ready', (ev) => {
+      sseRetryCount = 0;
+      stopPollFallback();
+    });
     sse.addEventListener('notify', (ev) => {
       try {
         const n = JSON.parse(ev.data);
@@ -467,7 +490,15 @@ function connectSSE() {
     sse.onerror = () => {
       try { sse.close(); } catch (_) {}
       sse = null;
+      sseRetryCount++;
+      // SSE 断开期间先切增量轮询，同时做一次全量刷新兜底
       startPollFallback();
+      fetchNotifs(false, true);
+      // 指数退避重连 SSE
+      const delay = Math.min(1000 * Math.pow(2, sseRetryCount), 30000);
+      setTimeout(() => {
+        if (!sse) connectSSE();
+      }, delay);
     };
     const live = document.querySelector('.topbar .live');
     if (live) live.title = 'SSE 实时推送';
@@ -624,8 +655,9 @@ async function fetchSummary() {
   }
 }
 
-// Initial load + SSE 实时；失败则 since 增量轮询
+// Initial load + SSE 实时；失败则 since 增量轮询 + 30s 兜底全量刷新
 fetchNotifs().then(() => connectSSE());
+startFullRefreshFallback();
 // Summary refresh every 10 seconds (only when summary tab active)
 setInterval(() => { if (currentTab === 'summary') fetchSummary(); }, 10000);
 </script>
