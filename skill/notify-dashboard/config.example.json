@@ -1,0 +1,10 @@
+{
+  "dashPort": 9875,
+  "dashBind": "127.0.0.1",
+  "dashToken": "",
+  "dashLocalBypass": true,
+  "iosBleAddress": "",
+  "androidBleAddress": "",
+  "androidNames": [],
+  "ancsEnabled": false
+}
