@@ -14,7 +14,7 @@ agent_created: true
 - **已移除 iPhone/ANCS、WiFi、经典蓝牙 RFCOMM**（v4.0.18 起）。
 - **安全默认**：看板默认仅监听 `127.0.0.1`；如需局域网访问，必须显式设置 `dashToken`，否则启动时会自动生成并写入 `config.json`。
 - **随包分发**：`notify-bridge.exe` 随 skill 包本地分发，安装脚本对其做 SHA-256 白名单校验，默认不再自动从网络下载。
-- **双自动化归档**：首次触发 skill 时，agent 须用 `automation_update` 自动检查并创建「手机通知今日待办判断」「手机通知今日摘要归档」两个 WorkBuddy 自动化；已存在则跳过，不重复创建。
+- **双自动化归档**：首次触发 skill 时，agent 须用 `automation_update` 自动检查并创建「手机通知今日待办判断」「手机通知今日摘要归档」两个 WorkBuddy 自动化；已存在则跳过，不重复创建。若本机 `config.json` 已配置 `ai.model`+`ai.apiKey`，待办/摘要改由 bridge 近实时写入 `*-bridge-*` 文件，两条自动化应自检跳过（无需手动关闭）。
 
 ## 安装（首次使用 / 重装）
 
@@ -77,7 +77,7 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 |------|-----|
 | `name` | `手机通知今日待办判断` |
 | `scheduleType` | `recurring` |
-| `rrule` | `FREQ=HOURLY;BYMINUTE=0-59` |
+| `rrule` | `FREQ=HOURLY` |
 | `cwds` | `<USERPROFILE>\NotifyPC` 的实际绝对路径 |
 | `status` | `ACTIVE` |
 
@@ -85,7 +85,13 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 
 ```text
 你是手机通知待办判断助手。工作目录：<USERPROFILE>\NotifyPC
-任务：每分钟检查 notify.jsonl 的新增通知，判断哪些属于需要用户今日处理的待办事项，追加保存到 todo-YYYYMMDD.json。
+
+【本机 AI 接管检测 — 最先执行】
+先读取工作目录 config.json。若其中 ai.apiKey 与 ai.model 均非空（本机 bridge AI 已配置），
+则直接回复「本机 bridge AI 已接管，跳过」并结束：不要读写 todo / notify-summary 任何文件，不要更新 cursor。
+
+任务：每小时检查 notify.jsonl 的新增通知，只把「用户今天必须亲自处理」的事项写入 todo-YYYYMMDD.json。
+默认不收录；拿不准就丢弃，宁可漏也不要误收广告/资讯。
 
 输入：
 - logs\notify.jsonl：每行一个 JSON 通知，字段 v, ts, pkg, app, title, text, id。
@@ -93,23 +99,38 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 
 处理要求：
 1. 只处理 .todo_cursor 之后的新通知。
-2. 结合应用名、标题、正文，判断是否需要今日跟进。高优先级待办包括：验证码/一次性密码、快递/取件、会议/日程、来电/未接、银行/支付、航班/车票、待办/任务提醒等。
-3. 每条待办输出为 JSON 对象，字段：
+2. 仅当通知明确属于下列「真待办」之一才收录：
+   - 验证码 / OTP / 动态口令（需马上用）
+   - 快递 / 取件 / 外卖配送（含取件码、柜号、送达）
+   - 会议 / 日程 / 闹钟 / 日历事件（有具体时间或明确邀约）
+   - 未接来电 / 需回电
+   - 真实资金变动：已扣款、到账、转账成功、账单待还、信用卡还款日（必须是已发生或明确待付的个人交易，不是营销）
+   - 航班 / 火车 / 出行票务变更、值机、登机口
+   - 系统/App 明确的「待办/任务/审批」且指向用户本人要做的事
+3. 以下一律不收录（即使有「提醒」「支付」「消息」字样）：
+   - 新闻/快报/头条/媒体/资讯
+   - 广告/营销：优惠、福利、未领、奖励、活动、分期、购车、理财推广、会员推销
+   - 天气、降雨、城市服务广播（无个人行动项）
+   - 游戏/能量/助力/运营活动
+   - 空泛提醒：「您有N条消息」「新消息」「GroupSummary」、仅打开 App 的推送
+   - 政策/登记/延用等长周期提示（无「今日必须办」的截止动作）
+4. 收录时输出 JSON 对象，字段：
    - id：唯一标识（可用原始 id 或 ts+title 生成）
    - ts：通知原始毫秒时间戳
    - app：应用显示名
    - title：通知标题
    - text：通知正文
-   - category：待办类别，如 账号验证、快递取件、日程提醒、财务支付、出行票务、回电跟进 等
+   - category：只用 账号验证、快递取件、日程提醒、财务支付、出行票务、回电跟进、审批待办
    - extra：额外提醒信息（如取件码、航班号等），没有则留空
-4. 把新增的待办数组追加到 logs\todo-YYYYMMDD.json 的 items 字段。文件不存在则创建为 {"items":[]} 后再追加。
-5. 更新 logs\.todo_cursor 为 notify.jsonl 当前总行数。
+5. 把新增的待办数组追加到 logs\todo-YYYYMMDD.json 的 items 字段。文件不存在则创建为 {"items":[]} 后再追加。
+6. 更新 logs\.todo_cursor 为 notify.jsonl 当前总行数。
 
 注意：
 - 只追加新待办，不删除历史记录。
 - 同一通知不要重复处理；以 .todo_cursor 行号为准。
-- 没有新通知时直接结束，不写空文件。
+- 本批若无真待办：仍更新 cursor，回复处理了 N 条、新增 0 条，不要写空噪声。
 - 完成后回复处理了多少条通知、新增几条待办。
+- 不要写入 todo-bridge-*.json（那是本机 bridge AI 专用）。
 ```
 
 ### 2. 手机通知今日摘要归档
@@ -125,27 +146,43 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 **prompt：**
 
 ```text
-你是手机通知归档摘要助手。工作目录：<USERPROFILE>\NotifyPC
-任务：每小时读取当天全部通知，按应用归类生成中文摘要，覆盖保存到 notify-summary-YYYYMMDD.json。
+你是「今日通知阅览摘要」助手，不是待办筛选器。工作目录：<USERPROFILE>\NotifyPC
+
+【本机 AI 接管检测 — 最先执行】
+先读取工作目录 config.json。若其中 ai.apiKey 与 ai.model 均非空（本机 bridge AI 已配置），
+则直接回复「本机 bridge AI 已接管，跳过」并结束：不要读写 notify-summary / todo 任何文件。
+
+任务：每小时读取当天全部通知，生成可读的当天总览，覆盖保存到 notify-summary-YYYYMMDD.json。
+目标：高价值要醒目；广告/资讯合并省略。不要按待办白名单丢弃整天内容；也不要写入 todo-*.json 或维护 .todo_cursor。
 
 输入：
 - logs\notify.jsonl：每行一个 JSON 通知，字段 v, ts, pkg, app, title, text, id。
 
 处理要求：
 1. 过滤出当天的全部通知（用 ts 毫秒时间戳判断日期）。
-2. 按应用(app)归类，每个应用下列出该时段的通知要点（标题+正文关键信息）。
-3. 特别标注高价值通知：验证码/一次性密码、快递/取件、会议/日程、来电/未接、银行/支付、航班/车票等。
-4. 输出 JSON 对象保存到 logs\notify-summary-YYYYMMDD.json（按当天日期），结构：
+2. 输出 JSON 覆盖写入 logs\notify-summary-YYYYMMDD.json，结构：
    - date：当天日期，如 "2026-08-27"
-   - digest：中文摘要 markdown 字符串
+   - digest：中文摘要 markdown 字符串（结构见下）
    - highlights：高价值通知数组，每个元素含 ts/app/title/text/reason
-   - stats：统计对象，可选，如 {"total": 10, "apps": {"短信": 3, ...}}
+   - stats：{"total": N, "apps": {"应用名": 条数, ...}, "noise": 广告资讯等可忽略条数}
+
+3. digest 必须按以下三级结构写（简洁，总长建议不超过 1500 字）：
+   ## 需关注
+   - 仅列真正重要的事：验证码/OTP、快递取件、会议日程、未接来电、真实资金变动、票务变更等（1～8 条；没有则写「无」）
+   ## 按应用
+   - 按 app 归类，每个应用 1～3 条要点（标题+关键信息）；聊天类可概括为「微信：N 条会话提醒」
+   ## 可忽略
+   - 广告/营销/资讯/快报/运营活动/空泛「您有N条消息」等，合并写成「支付宝营销 3 条；头条资讯 5 条」这类，不要逐条展开正文
+
+4. highlights 只放「需关注」级通知；禁止把新闻快报、优惠福利、游戏能量、GroupSummary 等放入 highlights。
+5. 验证码类：text 可打码（如只保留后 4 位，或写「收到验证码」），不要全文照抄敏感码。
 
 注意：
 - 每小时覆盖当天文件，不是追加。
 - 只输出当天的通知；跨天通知不要混入。
-- 保持简洁，突出关键信息。
-- 完成后回复本次汇总了多少条通知、写入哪个文件。
+- 本任务与「今日待办判断」独立：摘要负责阅览全景，待办负责行动清单。
+- 不要写入 notify-summary-bridge-*.json（那是本机 bridge AI 专用）。
+- 完成后回复：当天共 N 条、highlights M 条、写入哪个文件。
 ```
 
 ## config.json
@@ -159,7 +196,12 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
   "iosBleAddress": "",
   "androidBleAddress": "",
   "androidNames": [],
-  "ancsEnabled": false
+  "ancsEnabled": false,
+  "ai": {
+    "baseUrl": "https://api.openai.com/v1",
+    "model": "",
+    "apiKey": ""
+  }
 }
 ```
 
@@ -174,6 +216,9 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 | `androidBleAddress` | 可选，直接指定手机 BLE 地址连接 |
 | `androidNames` | 可选，Windows 扫描不到 UUID 时按蓝牙名匹配，如 `["陈同学的Xiaomi 14"]` |
 | `ancsEnabled` | iPhone/ANCS 已废弃，保持 `false` |
+| `ai.baseUrl` | OpenAI 兼容 Chat Completions 地址，如 `https://api.moonshot.cn/v1` |
+| `ai.model` | 模型名；与 `ai.apiKey` 同时非空时启用本机 AI |
+| `ai.apiKey` | API Key（仅存本机 config.json）。启用后 bridge 写 `todo-bridge-*` / `notify-summary-bridge-*`，看板优先读这套文件；WorkBuddy 自动化应自检跳过 |
 
 ## API（调试）
 
@@ -182,11 +227,12 @@ powershell -ExecutionPolicy Bypass -File "<skill>\scripts\install.ps1" -KeepConf
 - `GET /api/events` → SSE 实时推送
 - `GET /api/stats` → 统计摘要
 - `GET /api/summary` → 今日汇总统计（看板仍用此接口刷新数字）
-- `GET /api/info` → 版本 / IP / 端口
+- `GET /api/info` → 版本 / IP / 端口 / `aiConfigured`
 - `GET /api/clients` → 在线手机客户端列表
-- `GET /api/todo` → 今日待办 JSON（由 WorkBuddy 自动化生成 `logs\todo-YYYYMMDD.json` 后返回，结构 `{"items": [...]}`）
-- `GET /api/today-summary` → 今日摘要 JSON（由 WorkBuddy 自动化生成 `logs\notify-summary-YYYYMMDD.json` 后返回，结构 `{"date": "...", "digest": "markdown", "highlights": [...], "stats": {...}}`）
-
+- `GET /api/todo` → 今日待办 JSON（配 AI 时读 `todo-bridge-YYYYMMDD.json`，否则读 WorkBuddy 的 `todo-YYYYMMDD.json`）
+- `GET /api/today-summary` → 今日摘要 JSON（配 AI 时读 `notify-summary-bridge-YYYYMMDD.json`，否则读 WorkBuddy 文件）
+- `GET/POST /api/ai-config` → 查看/保存本机 AI 配置（Key 脱敏）
+- `POST /api/ai-run` → 手动触发 `{"task":"todo"|"summary"|"both"}`
 ## 安全说明
 
 - **默认仅本机**：`config.json` 默认 `dashBind: 127.0.0.1`，看板只能通过 `http://localhost:9875` 打开，避免验证码等敏感通知在局域网明文暴露。

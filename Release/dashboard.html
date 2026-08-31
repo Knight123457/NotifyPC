@@ -23,6 +23,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 .topbar .tabs .tab:hover:not(.active){color:var(--text)}
 .topbar .live{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--green);font-weight:600}
 .topbar .live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.topbar .ai-btn{height:30px;padding:0 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);cursor:pointer;font-size:12px;color:var(--text2);display:inline-flex;align-items:center;gap:4px;transition:all .2s;white-space:nowrap}
+.topbar .ai-btn:hover{border-color:var(--primary);color:var(--primary)}
+.topbar .ai-btn.on{background:var(--primary-light);border-color:#c7d2fe;color:var(--primary);font-weight:600}
+.ai-modal-mask{display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100;align-items:center;justify-content:center;padding:16px}
+.ai-modal-mask.show{display:flex}
+.ai-modal{background:var(--card);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.18);width:min(440px,100%);padding:18px 18px 14px}
+.ai-modal h3{font-size:15px;margin-bottom:6px}
+.ai-modal .hint{font-size:12px;color:var(--text2);line-height:1.5;margin-bottom:12px}
+.ai-modal label{display:block;font-size:12px;color:var(--text2);margin:10px 0 4px}
+.ai-modal input{width:100%;height:34px;border:1px solid var(--border);border-radius:8px;padding:0 10px;font-size:13px;outline:none}
+.ai-modal input:focus{border-color:var(--primary)}
+.ai-modal .row{display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap}
+.ai-modal .btn{height:32px;padding:0 12px;border-radius:6px;border:1px solid var(--border);background:var(--card);cursor:pointer;font-size:12px}
+.ai-modal .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+.ai-modal .status{font-size:12px;color:var(--text2);margin-top:10px;min-height:18px}
 .topbar .conn{font-size:12px;font-weight:600;color:var(--primary);background:var(--primary-light);border:1px solid #dfe6ff;border-radius:14px;padding:4px 12px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
 .topbar .conn .off{color:var(--text2);font-weight:400}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(1.3)}}
@@ -75,10 +90,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 .tag-财务支付{background:#fdeef3;color:#e17055}
 .tag-出行票务{background:#f3eefe;color:#a29bfe}
 .tag-回电跟进{background:#e8f4fd;color:#0984e3}
-.digest{white-space:pre-wrap;font-size:12.5px;line-height:1.7;color:var(--text);background:var(--bg);border-radius:8px;padding:12px 14px;max-height:340px;overflow-y:auto}
-.digest .d-head{font-weight:700;color:var(--primary);font-size:13px;margin:6px 0 4px}
-.digest .d-bullet{margin-left:2px}
+.tag-审批待办{background:#f0fdf4;color:#16a34a}
+.digest{font-size:12.5px;line-height:1.7;color:var(--text);background:var(--bg);border-radius:8px;padding:10px 12px;max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
 .digest .d-empty{color:var(--text2);text-align:center;padding:16px}
+.digest .d-sec{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;border-left:3px solid var(--border)}
+.digest .d-sec.focus{border-left-color:var(--warn-border);background:linear-gradient(90deg,var(--warn-bg),var(--card) 48%)}
+.digest .d-sec.apps{border-left-color:var(--primary)}
+.digest .d-sec.noise{border-left-color:#cbd5e1;opacity:.92}
+.digest .d-sec.noise .d-bullet{color:var(--text2)}
+.digest .d-head{font-weight:700;font-size:13px;margin:0 0 6px;display:flex;align-items:center;gap:6px}
+.digest .d-sec.focus .d-head{color:#c2410c}
+.digest .d-sec.apps .d-head{color:var(--primary)}
+.digest .d-sec.noise .d-head{color:var(--text2);font-weight:600}
+.digest .d-bullet{margin:2px 0 2px 2px;padding-left:2px}
+.digest .d-plain{margin:2px 0;color:var(--text2)}
+.hl-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.hl-item{display:flex;gap:10px;align-items:flex-start;padding:8px 10px;background:var(--warn-bg);border:1px solid #ffe0b2;border-radius:8px}
+.hl-item .hl-meta{flex-shrink:0;font-size:11px;color:#c2410c;font-weight:600;min-width:42px;text-align:right;padding-top:2px}
+.hl-item .hl-body{flex:1;min-width:0}
+.hl-item .hl-title{font-size:13px;font-weight:600}
+.hl-item .hl-text{font-size:12px;color:var(--text2);margin-top:2px;line-height:1.45;word-break:break-word}
+.hl-item .hl-app{font-size:11px;color:var(--text2);margin-right:6px}
 .sum-hint{font-size:12px;color:var(--text2);text-align:center;margin-top:6px}
 .sum-hint b{color:var(--primary);font-weight:600}
 
@@ -125,6 +157,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
     <button class="tab" id="tabSummary" onclick="switchTab('summary')">汇总待办</button>
   </div>
   <div class="live"><span class="dot"></span> 实时</div>
+  <button type="button" class="ai-btn" id="aiBtn" onclick="openAiModal()" title="配置本机模型后，待办/摘要由 bridge 近实时生成">🤖 AI：未配置</button>
   <div class="conn" id="connInfo" title="手机端 App 需填写的连接地址">📡 手机连接：获取中...</div>
   <div class="search">
     <span class="icon">🔍</span>
@@ -145,6 +178,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
   <div class="main" id="summaryPanel">
     <div class="summary" id="summaryInner">
       <div class="empty">汇总加载中...</div>
+    </div>
+  </div>
+</div>
+
+<div class="ai-modal-mask" id="aiModalMask" onclick="if(event.target===this)closeAiModal()">
+  <div class="ai-modal" role="dialog" aria-labelledby="aiModalTitle">
+    <h3 id="aiModalTitle">本机 AI 模型</h3>
+    <div class="hint">配置后，今日待办/摘要由 bridge 调用模型生成（独立文件，近实时）。清空 Key 则回退 WorkBuddy 小时自动化。API Key 仅保存在本机 config.json。</div>
+    <label>API Base URL（OpenAI 兼容）</label>
+    <input id="aiBaseUrl" placeholder="https://api.openai.com/v1 或 https://api.moonshot.cn/v1">
+    <label>模型名</label>
+    <input id="aiModel" placeholder="如 gpt-4o-mini / moonshot-v1-8k">
+    <label>API Key（留空保存=清除；已配置时留空表示不改）</label>
+    <input id="aiApiKey" type="password" placeholder="sk-...">
+    <div class="status" id="aiModalStatus"></div>
+    <div class="row">
+      <button type="button" class="btn" onclick="disableAiConfig()">关闭本机 AI</button>
+      <button type="button" class="btn" onclick="runAiNow()">立即生成</button>
+      <button type="button" class="btn" onclick="closeAiModal()">取消</button>
+      <button type="button" class="btn primary" onclick="saveAiConfig()">保存</button>
     </div>
   </div>
 </div>
@@ -179,6 +232,8 @@ let allNotifs = [];
 let seenIds = new Set();
 let activeApp = '全部';
 let searchQuery = '';
+let aiConfigured = false;
+let aiClearKeyOnSave = false;
 
 /** 常见应用包名 → 显示名（历史数据或未装 APK 更新时的兜底） */
 const PKG_NAMES = {
@@ -515,6 +570,8 @@ async function fetchInfo() {
       fetch(apiUrl('/api/clients'))
     ]);
     const info = await infoResp.json();
+    aiConfigured = !!info.aiConfigured;
+    updateAiBtn(info);
     const cli = await cliResp.json();
     const el = document.getElementById('connInfo');
     if (!el) return;
@@ -536,6 +593,119 @@ async function fetchInfo() {
     if (el) el.innerHTML = '<span class="off">📡 连接信息不可用</span>';
   }
 }
+
+function updateAiBtn(info) {
+  const btn = document.getElementById('aiBtn');
+  if (!btn) return;
+  const on = !!(info && info.aiConfigured);
+  btn.classList.toggle('on', on);
+  const model = (info.ai && info.ai.model) || '';
+  const st = (info.aiStatus || info.ai && info.ai.status) || '';
+  if (on) {
+    btn.textContent = '🤖 AI：' + (model || '已配置');
+    btn.title = st || '本机模型已接管待办/摘要（近实时）';
+  } else {
+    btn.textContent = '🤖 AI：未配置';
+    btn.title = '点击配置模型；未配置时走 WorkBuddy 小时自动化';
+  }
+}
+
+async function openAiModal() {
+  const mask = document.getElementById('aiModalMask');
+  const status = document.getElementById('aiModalStatus');
+  aiClearKeyOnSave = false;
+  try {
+    const resp = await fetch(apiUrl('/api/ai-config'));
+    const cfg = await resp.json();
+    document.getElementById('aiBaseUrl').value = cfg.baseUrl || 'https://api.openai.com/v1';
+    document.getElementById('aiModel').value = cfg.model || '';
+    document.getElementById('aiApiKey').value = '';
+    document.getElementById('aiApiKey').placeholder = cfg.hasApiKey
+      ? ('已保存 ' + (cfg.apiKeyMasked || '****') + '，留空=不修改')
+      : 'sk-...';
+    status.textContent = cfg.status || (cfg.configured ? '已启用本机 AI' : '未配置');
+    if (cfg.lastError) status.textContent += '｜' + cfg.lastError;
+  } catch (e) {
+    status.textContent = '读取配置失败';
+  }
+  mask.classList.add('show');
+}
+
+function closeAiModal() {
+  document.getElementById('aiModalMask').classList.remove('show');
+}
+
+async function saveAiConfig() {
+  const status = document.getElementById('aiModalStatus');
+  const baseUrl = document.getElementById('aiBaseUrl').value.trim();
+  const model = document.getElementById('aiModel').value.trim();
+  const apiKey = document.getElementById('aiApiKey').value.trim();
+  const body = { baseUrl, model };
+  // 用户输入了新 key 才更新；若模型清空且用户点了特殊清除——用空 model 表示关闭
+  if (apiKey) body.apiKey = apiKey;
+  // 若模型与 key 都空，视为关闭：显式清 key
+  if (!model && !apiKey) body.apiKey = '';
+  status.textContent = '保存中…';
+  try {
+    const resp = await fetch(apiUrl('/api/ai-config'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const cfg = await resp.json();
+    aiConfigured = !!cfg.configured;
+    updateAiBtn({ aiConfigured, ai: cfg, aiStatus: cfg.status });
+    status.textContent = cfg.configured
+      ? ('已保存，本机 AI 已启用' + (cfg.status ? '｜' + cfg.status : ''))
+      : '已保存，未启用（将使用 WorkBuddy 自动化）';
+    if (currentTab === 'summary') fetchSummary();
+  } catch (e) {
+    status.textContent = '保存失败: ' + e;
+  }
+}
+
+async function disableAiConfig() {
+  const status = document.getElementById('aiModalStatus');
+  status.textContent = '关闭中…';
+  try {
+    const resp = await fetch(apiUrl('/api/ai-config'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: '', apiKey: '', baseUrl: document.getElementById('aiBaseUrl').value.trim() })
+    });
+    const cfg = await resp.json();
+    document.getElementById('aiModel').value = '';
+    document.getElementById('aiApiKey').value = '';
+    aiConfigured = false;
+    updateAiBtn({ aiConfigured: false, ai: cfg });
+    status.textContent = '已关闭本机 AI，汇总页将读 WorkBuddy 文件';
+    if (currentTab === 'summary') fetchSummary();
+  } catch (e) {
+    status.textContent = '关闭失败: ' + e;
+  }
+}
+
+async function runAiNow() {
+  const status = document.getElementById('aiModalStatus');
+  status.textContent = '正在调用模型…';
+  try {
+    const resp = await fetch(apiUrl('/api/ai-run'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task: 'both' })
+    });
+    const result = await resp.json();
+    const okTodo = result.todo && result.todo.ok;
+    const okSum = result.summary && result.summary.ok;
+    status.textContent = '完成：待办 ' + (okTodo ? 'OK' : (result.todo && result.todo.error) || '失败')
+      + '；摘要 ' + (okSum ? 'OK' : (result.summary && result.summary.error) || '失败');
+    await fetchInfo();
+    if (currentTab === 'summary') fetchSummary();
+  } catch (e) {
+    status.textContent = '触发失败: ' + e;
+  }
+}
+
 fetchInfo();
 setInterval(fetchInfo, 5000);
 
@@ -597,24 +767,73 @@ async function fetchText(url, fallback) {
   }
 }
 
+function sectionClass(title) {
+  const t = (title || '').replace(/\s/g, '');
+  if (t.includes('需关注')) return 'focus';
+  if (t.includes('可忽略') || t.includes('忽略')) return 'noise';
+  if (t.includes('按应用') || t.includes('应用')) return 'apps';
+  return 'apps';
+}
+
 function renderMarkdown(md, emptyMsg) {
   if (!md || !md.trim()) {
     return `<div class="d-empty">${emptyMsg}</div>`;
   }
   const lines = md.split('\n');
-  const html = [];
+  const sections = [];
+  let cur = null;
+  const pushPlain = (html) => {
+    if (!cur) {
+      cur = { title: '摘要', cls: 'apps', body: [] };
+      sections.push(cur);
+    }
+    cur.body.push(html);
+  };
   for (const line of lines) {
     const t = line.trim();
     if (!t) continue;
-    if (t.startsWith('## ')) html.push('<div class="d-head">' + escapeHtml(t.slice(3)) + '</div>');
-    else if (t.startsWith('### ')) html.push('<div class="d-head" style="margin-top:8px;font-size:12px">' + escapeHtml(t.slice(4)) + '</div>');
-    else if (t.startsWith('- [ ] ')) html.push('<div class="d-bullet">☐ ' + escapeHtml(t.slice(6)) + '</div>');
-    else if (t.startsWith('- [x] ')) html.push('<div class="d-bullet">☑ ' + escapeHtml(t.slice(6)) + '</div>');
-    else if (t.startsWith('- ')) html.push('<div class="d-bullet">• ' + escapeHtml(t.slice(2)) + '</div>');
-    else if (t.startsWith('**')) html.push('<div class="d-bullet">• ' + escapeHtml(t.replace(/\*\*/g, '')) + '</div>');
-    else html.push('<div>' + escapeHtml(t) + '</div>');
+    if (t.startsWith('## ')) {
+      const title = t.slice(3).trim();
+      cur = { title, cls: sectionClass(title), body: [] };
+      sections.push(cur);
+      continue;
+    }
+    if (t.startsWith('### ')) {
+      pushPlain('<div class="d-head" style="font-size:12px;margin-top:6px">' + escapeHtml(t.slice(4)) + '</div>');
+    } else if (t.startsWith('- [ ] ')) {
+      pushPlain('<div class="d-bullet">☐ ' + escapeHtml(t.slice(6)) + '</div>');
+    } else if (t.startsWith('- [x] ')) {
+      pushPlain('<div class="d-bullet">☑ ' + escapeHtml(t.slice(6)) + '</div>');
+    } else if (t.startsWith('- ')) {
+      pushPlain('<div class="d-bullet">• ' + escapeHtml(t.slice(2)) + '</div>');
+    } else if (t.startsWith('**')) {
+      pushPlain('<div class="d-bullet">• ' + escapeHtml(t.replace(/\*\*/g, '')) + '</div>');
+    } else {
+      pushPlain('<div class="d-plain">' + escapeHtml(t) + '</div>');
+    }
   }
-  return html.join('');
+  if (!sections.length) return `<div class="d-empty">${emptyMsg}</div>`;
+  return sections.map(s =>
+    `<div class="d-sec ${s.cls}"><div class="d-head">${escapeHtml(s.title)}</div>${s.body.join('') || '<div class="d-plain">—</div>'}</div>`
+  ).join('');
+}
+
+function renderHighlights(list) {
+  if (!Array.isArray(list) || list.length === 0) return '';
+  const rows = list.slice(0, 12).map(h => {
+    const app = escapeHtml(h.app || '');
+    const title = escapeHtml(h.title || h.text || '通知');
+    const text = escapeHtml(h.text || h.reason || '');
+    const time = formatTime(h.ts);
+    return `<div class="hl-item">
+      <div class="hl-meta">${time}</div>
+      <div class="hl-body">
+        <div class="hl-title"><span class="hl-app">${app}</span>${title}</div>
+        ${text ? `<div class="hl-text">${text}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="hl-list">${rows}</div>`;
 }
 
 function renderSummary() {
@@ -631,8 +850,11 @@ function renderSummary() {
 
   const items = (todoData && todoData.items) || [];
   const todoCount = items.length;
+  const emptyHint = aiConfigured
+    ? '本机 AI 近实时生成；也可点顶栏「AI」→ 立即生成。'
+    : '每小时自动化会生成，或直接在对话中说「汇总手机通知」。';
   const todoHtml = todoCount === 0
-    ? '<div class="d-empty">今天暂无待办级通知 🎉<br>每分钟自动化会生成，或直接在对话中说「汇总手机通知」。</div>'
+    ? `<div class="d-empty">今天暂无待办级通知 🎉<br>${emptyHint}</div>`
     : items.map(a => {
         const isDone = doneSet.has(a.id);
         return `<div class="todo-item ${isDone ? 'done' : ''}" data-id="${escapeHtml(a.id)}">
@@ -647,7 +869,15 @@ function renderSummary() {
           <div class="todo-time">${formatTime(a.ts)}</div>
         </div>`;
       }).join('');
-  const digestHtml = renderMarkdown((summaryMdData && summaryMdData.digest) || '', '暂无今日摘要归档。<br>每小时自动化会生成，或直接在对话中说「汇总手机通知」。');
+  const digestHtml = renderMarkdown((summaryMdData && summaryMdData.digest) || '', `暂无今日摘要归档。<br>${emptyHint}`);
+  const hlHtml = renderHighlights(summaryMdData && summaryMdData.highlights);
+  const noise = summaryMdData && summaryMdData.stats && summaryMdData.stats.noise;
+  const noiseHint = (typeof noise === 'number' && noise > 0)
+    ? `<span style="margin-left:8px;font-size:12px;color:var(--text2);font-weight:400">可忽略 ${noise} 条</span>`
+    : '';
+  const modeHint = aiConfigured
+    ? '💡 已配置本机 AI：待办近实时、摘要约 1–2 分钟防抖生成（文件 todo-bridge-*/notify-summary-bridge-*）。'
+    : '💡 未配置本机 AI：今日待办与摘要由 WorkBuddy 每小时处理；也可说 <b>「汇总手机通知」</b>';
 
   inner.innerHTML = `
     <div class="sum-grid">
@@ -662,10 +892,11 @@ function renderSummary() {
       ${todoHtml}
     </div>
     <div class="sum-card">
-      <div class="sum-title">📝 今日摘要</div>
+      <div class="sum-title">📝 今日摘要${noiseHint}</div>
+      ${hlHtml}
       <div class="digest">${digestHtml}</div>
     </div>
-    <div class="sum-hint">💡 今日待办每分钟自动判断，今日摘要每小时自动归档；想要即时处理，直接对我说 <b>「汇总手机通知」</b></div>
+    <div class="sum-hint">${modeHint}</div>
   `;
 }
 
