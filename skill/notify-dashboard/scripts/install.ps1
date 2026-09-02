@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 # ── 版本与供应链安全 ────────────────────────────────────────
 # 随包分发的 notify-bridge.exe 必须与此 SHA-256 一致；发布前请用实际 exe 更新。
 $ExeVersion      = "4.1.0"
-$ExeSha256       = "affdbcf2dcb13de935af4e08f44a7c9ac1143ce474c22407c48290028e1163f5"
+$ExeSha256       = "d637bdcd81edbf824d844985b62b3fa4f82305af677aeb59363fa5d2fb1fb884"
 $GitHubReleaseUrl = "https://github.com/Knight123457/NotifyPC/releases/download/v$ExeVersion/notify-bridge.exe"
 
 $skillRoot = Split-Path -Parent $PSScriptRoot

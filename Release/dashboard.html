@@ -91,6 +91,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 .tag-出行票务{background:#f3eefe;color:#a29bfe}
 .tag-回电跟进{background:#e8f4fd;color:#0984e3}
 .tag-审批待办{background:#f0fdf4;color:#16a34a}
+.tag-微信-待办{background:#e8f5e9;color:#2e7d32}
+.tag-QQ-待办{background:#e3f2fd;color:#1565c0}
 .digest{font-size:12.5px;line-height:1.7;color:var(--text);background:var(--bg);border-radius:8px;padding:10px 12px;max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
 .digest .d-empty{color:var(--text2);text-align:center;padding:16px}
 .digest .d-sec{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;border-left:3px solid var(--border)}
@@ -113,6 +115,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
 .hl-item .hl-app{font-size:11px;color:var(--text2);margin-right:6px}
 .sum-hint{font-size:12px;color:var(--text2);text-align:center;margin-top:6px}
 .sum-hint b{color:var(--primary);font-weight:600}
+.chat-summary{font-size:12.5px;color:var(--text)}
+.chat-mention{font-size:12px;color:var(--warn-border);background:var(--warn-bg);border-radius:6px;padding:6px 10px;margin-bottom:10px;border-left:3px solid var(--warn-border)}
+.chat-item{padding:10px 0;border-bottom:1px solid var(--border)}
+.chat-item:last-child{border-bottom:none}
+.chat-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.chat-name{font-size:13px;font-weight:600;flex:1}
+.chat-count{font-size:11px;color:var(--text2);background:var(--bg);border-radius:10px;padding:1px 8px}
+.chat-points{margin:4px 0 0 18px;padding:0;font-size:12px;color:var(--text);line-height:1.6}
+.chat-points li{margin:2px 0}
+.chat-action{font-size:11px;color:var(--warn-border);margin-top:4px;margin-left:18px}
 
 /* Notification card */
 .card{background:var(--card);border-radius:var(--radius);padding:12px 16px;margin-bottom:8px;display:flex;gap:12px;box-shadow:var(--shadow);transition:box-shadow .2s;position:relative;overflow:hidden;border-left:3px solid transparent}
@@ -182,14 +194,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Micr
   </div>
 </div>
 
-<div class="ai-modal-mask" id="aiModalMask" onclick="if(event.target===this)closeAiModal()">
+<div class="ai-modal-mask" id="aiModalMask">
   <div class="ai-modal" role="dialog" aria-labelledby="aiModalTitle">
     <h3 id="aiModalTitle">本机 AI 模型</h3>
     <div class="hint">配置后，今日待办/摘要由 bridge 调用模型生成（独立文件，近实时）。清空 Key 则回退 WorkBuddy 小时自动化。API Key 仅保存在本机 config.json。</div>
     <label>API Base URL（OpenAI 兼容）</label>
     <input id="aiBaseUrl" placeholder="https://api.openai.com/v1 或 https://api.moonshot.cn/v1">
     <label>模型名</label>
-    <input id="aiModel" placeholder="如 gpt-4o-mini / moonshot-v1-8k">
+    <input id="aiModel" placeholder="如 gpt-4o-mini / moonshot-v1-8k / kimi-k2.7">
+    <label>Temperature（Kimi Coding 填 1）</label>
+    <input id="aiTemperature" type="number" min="0" max="2" step="0.1" value="1">
     <label>API Key（留空保存=清除；已配置时留空表示不改）</label>
     <input id="aiApiKey" type="password" placeholder="sk-...">
     <div class="status" id="aiModalStatus"></div>
@@ -619,6 +633,8 @@ async function openAiModal() {
     const cfg = await resp.json();
     document.getElementById('aiBaseUrl').value = cfg.baseUrl || 'https://api.openai.com/v1';
     document.getElementById('aiModel').value = cfg.model || '';
+    document.getElementById('aiTemperature').value =
+      (cfg.temperature === 0 || cfg.temperature) ? cfg.temperature : 1;
     document.getElementById('aiApiKey').value = '';
     document.getElementById('aiApiKey').placeholder = cfg.hasApiKey
       ? ('已保存 ' + (cfg.apiKeyMasked || '****') + '，留空=不修改')
@@ -639,8 +655,13 @@ async function saveAiConfig() {
   const status = document.getElementById('aiModalStatus');
   const baseUrl = document.getElementById('aiBaseUrl').value.trim();
   const model = document.getElementById('aiModel').value.trim();
+  const temperature = parseFloat(document.getElementById('aiTemperature').value);
   const apiKey = document.getElementById('aiApiKey').value.trim();
-  const body = { baseUrl, model };
+  const body = {
+    baseUrl,
+    model,
+    temperature: Number.isFinite(temperature) ? temperature : 1
+  };
   // 用户输入了新 key 才更新；若模型清空且用户点了特殊清除——用空 model 表示关闭
   if (apiKey) body.apiKey = apiKey;
   // 若模型与 key 都空，视为关闭：显式清 key
@@ -687,18 +708,31 @@ async function disableAiConfig() {
 
 async function runAiNow() {
   const status = document.getElementById('aiModalStatus');
-  status.textContent = '正在调用模型…';
+  status.textContent = '① 生成待办中…';
   try {
-    const resp = await fetch(apiUrl('/api/ai-run'), {
+    let todoPart = '—';
+    let sumPart = '—';
+    const todoResp = await fetch(apiUrl('/api/ai-run'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ task: 'both' })
+      body: JSON.stringify({ task: 'todo' })
     });
-    const result = await resp.json();
-    const okTodo = result.todo && result.todo.ok;
-    const okSum = result.summary && result.summary.ok;
-    status.textContent = '完成：待办 ' + (okTodo ? 'OK' : (result.todo && result.todo.error) || '失败')
-      + '；摘要 ' + (okSum ? 'OK' : (result.summary && result.summary.error) || '失败');
+    const todoResult = await todoResp.json();
+    const okTodo = todoResult.todo && todoResult.todo.ok;
+    todoPart = okTodo
+      ? ('OK' + (todoResult.todo.added != null ? ' +' + todoResult.todo.added : ''))
+      : ((todoResult.todo && todoResult.todo.error) || '失败');
+    status.textContent = '待办 ' + todoPart + '｜② 生成摘要中（可能需 1–2 分钟）…';
+
+    const sumResp = await fetch(apiUrl('/api/ai-run'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ task: 'summary' })
+    });
+    const sumResult = await sumResp.json();
+    const okSum = sumResult.summary && sumResult.summary.ok;
+    sumPart = okSum ? 'OK' : ((sumResult.summary && sumResult.summary.error) || '失败');
+    status.textContent = '完成：待办 ' + todoPart + '；摘要 ' + sumPart;
     await fetchInfo();
     if (currentTab === 'summary') fetchSummary();
   } catch (e) {
@@ -836,6 +870,30 @@ function renderHighlights(list) {
   return `<div class="hl-list">${rows}</div>`;
 }
 
+function renderChatSummary(data, name) {
+  if (!data || !data.total) {
+    return `<div class="d-empty">今天暂无 ${name} 重点通知 🎉</div>`;
+  }
+  const mention = data.mention
+    ? `<div class="chat-mention">⚠️ 有 @ 我的消息</div>`
+    : '';
+  const chats = (data.chats || []).map(c => {
+    const points = (c.points || []).map(p => `<li>${escapeHtml(p)}</li>`).join('');
+    const action = c.action
+      ? `<div class="chat-action">行动项：${escapeHtml(String(c.action))}</div>`
+      : '';
+    return `<div class="chat-item">
+      <div class="chat-head">
+        <span class="chat-name">${escapeHtml(c.name || '未知会话')}</span>
+        <span class="chat-count">${c.count || 0} 条</span>
+      </div>
+      ${points ? `<ul class="chat-points">${points}</ul>` : ''}
+      ${action}
+    </div>`;
+  }).join('');
+  return `<div class="chat-summary">${mention}${chats || '<div class="d-empty">无需要关注的会话</div>'}</div>`;
+}
+
 function renderSummary() {
   const inner = document.getElementById('summaryInner');
   if (!summaryData) {
@@ -850,6 +908,7 @@ function renderSummary() {
 
   const items = (todoData && todoData.items) || [];
   const todoCount = items.length;
+  const imTodoCount = items.filter(a => a.category === '微信待办' || a.category === 'QQ 待办').length;
   const emptyHint = aiConfigured
     ? '本机 AI 近实时生成；也可点顶栏「AI」→ 立即生成。'
     : '每小时自动化会生成，或直接在对话中说「汇总手机通知」。';
@@ -861,7 +920,7 @@ function renderSummary() {
           <input type="checkbox" ${isDone ? 'checked' : ''} onchange="toggleTodo('${escapeHtml(a.id).replace(/'/g, "\\'")}', this.checked)">
           <div class="todo-body">
             <div class="todo-head">
-              <span class="tag tag-${a.category}">${a.category}</span>
+              <span class="tag tag-${a.category.replace(/\s+/g, '-')}">${a.category}</span>
               <span class="todo-title">${escapeHtml(a.title || a.text || '通知')}</span>
             </div>
             ${a.text ? `<div class="todo-text">${escapeHtml(a.text)}${a.extra ? '<b style="color:var(--warn-border)">' + escapeHtml(a.extra) + '</b>' : ''}</div>` : ''}
@@ -870,7 +929,6 @@ function renderSummary() {
         </div>`;
       }).join('');
   const digestHtml = renderMarkdown((summaryMdData && summaryMdData.digest) || '', `暂无今日摘要归档。<br>${emptyHint}`);
-  const hlHtml = renderHighlights(summaryMdData && summaryMdData.highlights);
   const noise = summaryMdData && summaryMdData.stats && summaryMdData.stats.noise;
   const noiseHint = (typeof noise === 'number' && noise > 0)
     ? `<span style="margin-left:8px;font-size:12px;color:var(--text2);font-weight:400">可忽略 ${noise} 条</span>`
@@ -882,7 +940,7 @@ function renderSummary() {
   inner.innerHTML = `
     <div class="sum-grid">
       <div class="stat-card"><div class="num">${d.total}</div><div class="label">今日通知 (${d.today})</div></div>
-      <div class="stat-card hot"><div class="num">${todoCount}</div><div class="label">今日待办</div></div>
+      <div class="stat-card hot"><div class="num">${todoCount}</div><div class="label">今日待办${imTodoCount > 0 ? ` (${imTodoCount} 条 IM)` : ''}</div></div>
       <div class="stat-card"><div class="num">${d.appCount || 0}</div><div class="label">应用来源</div></div>
       <div class="stat-card"><div class="num">${d.onlineClients || 0}</div><div class="label">在线设备</div></div>
     </div>
@@ -892,8 +950,15 @@ function renderSummary() {
       ${todoHtml}
     </div>
     <div class="sum-card">
+      <div class="sum-title">💬 微信重点</div>
+      ${renderChatSummary(summaryMdData.wechat, '微信')}
+    </div>
+    <div class="sum-card">
+      <div class="sum-title">🐧 QQ 重点</div>
+      ${renderChatSummary(summaryMdData.qq, 'QQ')}
+    </div>
+    <div class="sum-card">
       <div class="sum-title">📝 今日摘要${noiseHint}</div>
-      ${hlHtml}
       <div class="digest">${digestHtml}</div>
     </div>
     <div class="sum-hint">${modeHint}</div>
@@ -909,7 +974,7 @@ async function fetchSummary() {
     ]);
     summaryData = await resp.json();
     todoData = parseJson(todoJson, { items: [] });
-    summaryMdData = parseJson(summaryJson, { digest: '' });
+    summaryMdData = parseJson(summaryJson, { digest: '', wechat: null, qq: null });
     renderSummary();
   } catch (e) {
     const inner = document.getElementById('summaryInner');

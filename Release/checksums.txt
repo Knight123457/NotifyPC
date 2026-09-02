@@ -1,12 +1,1 @@
-NotifyPC v4.0.3 可执行文件 SHA-256 校验值
-================================================
-
-notify-bridge.exe (Windows x64)
-  SHA-256: 8831939c5f0133fd33e93499cbece9166605bea77eb43a674effe6dde654e60e
-  版本  : 4.0.3
-  来源  : PyInstaller 打包自 github.com/Knight123457/NotifyPC (pc/notify_bridge.py)
-
-校验方法（PowerShell）:
-  Get-FileHash -Path "notify-bridge.exe" -Algorithm SHA256
-
-安装脚本 install.ps1 会强制校验上述哈希值；不一致时中止部署。
+notify-bridge.exe  f4491b88ab0e2214ecd50deb375c69b3c19e3fdb45851c66e4da43e480432a7b
